@@ -2,12 +2,17 @@
 
 A compact reference for Google Antigravity CLI (`agy`): install commands, slash commands, shortcuts, settings, permissions, subagents, plugins, MCP, and Gemini CLI migration.
 
+Updated for Antigravity CLI 1.1.3 on July 16, 2026.
+
 ## Contents
 
 - [Install](#install)
 - [Quick reference](#quick-reference)
+- [What changed in 1.1.3](#what-changed-in-113)
+- [Launch flags and headless mode](#launch-flags-and-headless-mode)
 - [Slash commands](#slash-commands)
 - [Keyboard shortcuts](#keyboard-shortcuts)
+- [Execution modes](#execution-modes)
 - [Settings and paths](#settings-and-paths)
 - [Permissions and sandbox](#permissions-and-sandbox)
 - [Subagents, plugins, skills, and MCP](#subagents-plugins-skills-and-mcp)
@@ -59,15 +64,20 @@ C:\Users\<Username>\AppData\Local\agy\bin
 |---|---|
 | Start CLI | `agy` |
 | Show slash commands | `/` |
+| Search code | `/codesearch`, `/cs`, `/search` |
 | Help | `?` or `/usage` |
 | Settings | `/config` or `/settings` |
 | Permissions | `/permissions` |
+| Plan mode | `/plan` |
+| Cycle execution mode | `Shift+Tab` |
 | Show diffs | `/diff` |
 | Resume session | `/resume` |
 | Rewind session | `/rewind` |
 | Fork session | `/fork` |
 | Add directory | `/add-dir <path>` |
 | Run shell command | `!<command>` |
+| Print mode | `agy -p "<prompt>"` |
+| Custom agent | `agy --agent <name>` |
 | Subagent panel | `/agents` |
 | Task logs | `/tasks` |
 | Skills | `/skills` |
@@ -75,6 +85,33 @@ C:\Users\<Username>\AppData\Local\agy\bin
 | Hooks | `/hooks` |
 | Log out | `/logout` |
 | Exit | `/exit` |
+
+## What changed in 1.1.3
+
+| Change | What it means |
+|---|---|
+| `/codesearch` | Interactive regex or literal workspace search. |
+| Print mode safety | Permission-gated tools are denied unless allowlisted. |
+| Context marker | Compaction boundaries appear in the conversation. |
+| No-flicker selection | Selected terminal text copies automatically. |
+| MCP timeouts | Unresponsive MCP operations no longer wait forever. |
+| Startup | Skills load asynchronously and discovery is cached. |
+
+## Launch flags and headless mode
+
+| Command or flag | Use |
+|---|---|
+| `agy -p "<prompt>"` | Run once and print the result. |
+| `--model <model>` | Select a model at launch. |
+| `--mode <mode>` | Start in default, accept-edits, or plan mode. |
+| `--agent <name>` | Start with a custom agent. |
+| `agy agent`, `agy agents` | List available custom agents. |
+| `--project <project>` | Open an existing project. |
+| `--new-project <name>` | Create a project. |
+| `--sandbox` | Enable sandboxing for the session. |
+| `AGY_CLI_CMD_OUTPUT_PERCENTAGE` | Limit command output shown in the TUI. |
+
+Print mode returns failures through stderr with a nonzero exit code. Tools that require approval are denied unless a matching allow rule exists, so scripts do not hang on an interactive confirmation.
 
 ## Slash commands
 
@@ -85,9 +122,9 @@ C:\Users\<Username>\AppData\Local\agy\bin
 | `/btw <query>` | Ask side question. |
 | `/clear` | Clear terminal/context. |
 | `/config` (`/settings`) | Open settings. |
+| `/codesearch` (`/cs`, `/search`) | Search workspace code. |
 | `/diff` | Show file diffs. |
 | `/exit` | Close CLI. |
-| `/fast` | Enable fast mode. |
 | `/fork` (`/branch`) | Fork session. |
 | `/hooks` | View hooks. |
 | `/keybindings` | Edit shortcuts. |
@@ -96,7 +133,7 @@ C:\Users\<Username>\AppData\Local\agy\bin
 | `/model` | Choose model. |
 | `/open <path>` | Open file. |
 | `/permissions` | Set approvals. |
-| `/planning` | Enable planning mode. |
+| `/plan` | Enter plan mode. |
 | `/rename <name>` | Rename thread. |
 | `/resume` (`/switch`, `/conversation`) | Resume session. |
 | `/rewind` (`/undo`) | Roll back history. |
@@ -106,6 +143,8 @@ C:\Users\<Username>\AppData\Local\agy\bin
 | `/title [on/off]` | Set terminal title. |
 | `/usage` | Open help manual. |
 
+`/codesearch` uses regular expressions by default. Add `-F` or `--literal` for exact text. Use `f:` or `file:` globs to include or exclude paths.
+
 ## Keyboard shortcuts
 
 Use `/keybindings` to inspect or edit active shortcuts.
@@ -114,14 +153,20 @@ Use `/keybindings` to inspect or edit active shortcuts.
 |---|---|
 | `Enter` | Submit. |
 | `Shift+Enter`, `Ctrl+J`, `Alt+Enter` | Newline. |
+| `Shift+Tab` | Cycle execution modes. |
 | `Esc` | Close, stop, or clear. |
-| `Ctrl+C` | Cancel or exit. |
-| `Ctrl+D` | Exit CLI. |
+| `Ctrl+C` | Cancel work; press twice to exit. |
+| `Ctrl+D` | Forward-delete; exit on empty prompt. |
 | `Ctrl+L` | Clear screen. |
 | `Ctrl+V` | Paste. |
-| `Ctrl+G` | Open editor. |
+| `Alt+V` | Alternative paste on Windows. |
+| `Ctrl+G` | Open prompt, diff, or confirmation in `$EDITOR`. |
 | `Ctrl+O` | Toggle details. |
 | `Ctrl+R` | Review artifacts. |
+| `f` | Open full diff from file review. |
+| `/` in artifact details | Search the current artifact. |
+| `n` / `N` during search | Next or previous match. |
+| `Shift+N` in diff view | Previous diff. |
 | `Alt+J` | Jump to subagent. |
 | `Ctrl+K` | Approve subagent action. |
 | `Ctrl+A` | Cursor start. |
@@ -132,9 +177,18 @@ Use `/keybindings` to inspect or edit active shortcuts.
 | `PgUp` / `Shift+Up` | Scroll up. |
 | `PgDn` / `Shift+Down` | Scroll down. |
 | `Tab` | Accept autofill. |
-| `y` | Approve. |
-| `n` | Reject. |
+| `y` / `n` at confirmation | Approve or reject. |
 | `A` | Approve all artifacts. |
+
+## Execution modes
+
+Choose Agent Mode in `/settings`, pass `--mode`, or press `Shift+Tab` to cycle modes.
+
+| Mode | Behavior |
+|---|---|
+| `default` | Review file writes before they run. |
+| `accept-edits` | Accept file edits automatically. |
+| `plan` | Plan without applying edits. |
 
 ## Settings and paths
 
@@ -144,6 +198,7 @@ Use `/keybindings` to inspect or edit active shortcuts.
 | `~/.gemini/antigravity-cli/keybindings.json` | Keybindings. |
 | `~/.gemini/antigravity-cli/plugins/<plugin_name>/` | Plugins. |
 | `~/.gemini/antigravity-cli/skills/` | Global skills. |
+| `~/.gemini/config/` | Global agents. |
 | `.agents/skills/` | Workspace skills. |
 | `~/.gemini/config/mcp_config.json` | Global MCP. |
 | `.agents/mcp_config.json` | Workspace MCP. |
@@ -173,6 +228,8 @@ Use `/keybindings` to inspect or edit active shortcuts.
 | `always-proceed` | No prompts. |
 | `strict` | Prompt for all non-read tools. |
 
+Use `permission.allow` to preapprove file writes or commands. Command rules use strict matching by default; prefix a rule with `regex:` only when a regular expression is required.
+
 Enable the terminal sandbox:
 
 ```json
@@ -183,7 +240,9 @@ Enable the terminal sandbox:
 
 ## Subagents, plugins, skills, and MCP
 
-Use `/agents` to inspect background subagents. Use `/tasks` for shell logs. Use `/skills` for Agent Skills. Use `/mcp` for Model Context Protocol servers. Use `/hooks` for pre-flight and post-format hooks.
+Use `/agents` to inspect background subagents, including nested subagents. Use `/tasks` for shell logs. Use `/skills` for Agent Skills. Use `/mcp` for Model Context Protocol servers. Use `/hooks` for pre-flight and post-format hooks.
+
+Use `--agent <name>` to select a custom agent at launch. The `agent` and `agents` subcommands list available agents.
 
 Plugin layout:
 
