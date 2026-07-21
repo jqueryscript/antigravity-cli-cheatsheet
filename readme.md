@@ -2,13 +2,13 @@
 
 A compact reference for Google Antigravity CLI (`agy`): install commands, slash commands, shortcuts, settings, permissions, subagents, plugins, MCP, and Gemini CLI migration.
 
-Updated for Antigravity CLI 1.1.3 on July 16, 2026.
+Updated for Antigravity CLI 1.1.5 on July 21, 2026.
 
 ## Contents
 
 - [Install](#install)
 - [Quick reference](#quick-reference)
-- [What changed in 1.1.3](#what-changed-in-113)
+- [What changed in 1.1.5](#what-changed-in-115)
 - [Launch flags and headless mode](#launch-flags-and-headless-mode)
 - [Slash commands](#slash-commands)
 - [Keyboard shortcuts](#keyboard-shortcuts)
@@ -68,6 +68,8 @@ C:\Users\<Username>\AppData\Local\agy\bin
 | Help | `?` or `/usage` |
 | Settings | `/config` or `/settings` |
 | Permissions | `/permissions` |
+| Model | `/model`, `--model <slug>` |
+| Reasoning effort | `/effort`, `/effort <level>`, `--effort <level>` |
 | Plan mode | `/plan` |
 | Cycle execution mode | `Shift+Tab` |
 | Show diffs | `/diff` |
@@ -86,23 +88,24 @@ C:\Users\<Username>\AppData\Local\agy\bin
 | Log out | `/logout` |
 | Exit | `/exit` |
 
-## What changed in 1.1.3
+## What changed in 1.1.5
 
 | Change | What it means |
 |---|---|
-| `/codesearch` | Interactive regex or literal workspace search. |
-| Print mode safety | Permission-gated tools are denied unless allowlisted. |
-| Context marker | Compaction boundaries appear in the conversation. |
-| No-flicker selection | Selected terminal text copies automatically. |
-| MCP timeouts | Unresponsive MCP operations no longer wait forever. |
-| Startup | Skills load asynchronously and discovery is cached. |
+| `/effort` | View or change reasoning effort without restarting the CLI. |
+| `--effort <level>` | Choose a reasoning-effort variant when launching. |
+| Model slugs | Use the stable model names shown in `/model` with `--model`. |
+| Custom-agent model | Add `model` to agent frontmatter to select a subagent tier; omit it to inherit the parent model. |
+| Command chains | Combine leading slash commands such as `/plan /grill-me` in one prompt. |
+| `/diff` | Scrolling remains stable when lines wrap or comments expand. |
 
 ## Launch flags and headless mode
 
 | Command or flag | Use |
 |---|---|
 | `agy -p "<prompt>"` | Run once and print the result. |
-| `--model <model>` | Select a model at launch. |
+| `--model <slug>` | Select a model with a stable model slug. |
+| `--effort <level>` | Select the model's reasoning-effort variant at launch. |
 | `--mode <mode>` | Start in default, accept-edits, or plan mode. |
 | `--agent <name>` | Start with a custom agent. |
 | `agy agent`, `agy agents` | List available custom agents. |
@@ -131,6 +134,7 @@ Print mode returns failures through stderr with a nonzero exit code. Tools that 
 | `/logout` | Clear saved tokens. |
 | `/mcp` | Manage MCP servers. |
 | `/model` | Choose model. |
+| `/effort` (`/effort <level>`) | View or set reasoning effort. |
 | `/open <path>` | Open file. |
 | `/permissions` | Set approvals. |
 | `/plan` | Enter plan mode. |
@@ -242,7 +246,7 @@ Enable the terminal sandbox:
 
 Use `/agents` to inspect background subagents, including nested subagents. Use `/tasks` for shell logs. Use `/skills` for Agent Skills. Use `/mcp` for Model Context Protocol servers. Use `/hooks` for pre-flight and post-format hooks.
 
-Use `--agent <name>` to select a custom agent at launch. The `agent` and `agents` subcommands list available agents.
+Use `--agent <name>` to select a custom agent at launch. The `agent` and `agents` subcommands list available agents. Add `model` to custom-agent frontmatter when a subagent should use a selected model tier; otherwise it inherits the parent model.
 
 Plugin layout:
 
