@@ -2,14 +2,15 @@
 
 A compact reference for Google Antigravity CLI (`agy`): install commands, slash commands, shortcuts, settings, permissions, subagents, plugins, MCP, and Gemini CLI migration.
 
-Updated for Antigravity CLI 1.1.5 on July 21, 2026.
+Updated for Antigravity CLI 1.1.11 on August 22, 2026.
 
 ## Contents
 
 - [Install](#install)
 - [Quick reference](#quick-reference)
-- [What changed in 1.1.5](#what-changed-in-115)
+- [What changed in 1.1.6–1.1.11](#what-changed-in-116111)
 - [Launch flags and headless mode](#launch-flags-and-headless-mode)
+- [Authentication](#authentication)
 - [Slash commands](#slash-commands)
 - [Keyboard shortcuts](#keyboard-shortcuts)
 - [Execution modes](#execution-modes)
@@ -65,20 +66,23 @@ C:\Users\<Username>\AppData\Local\agy\bin
 | Start CLI | `agy` |
 | Show slash commands | `/` |
 | Search code | `/codesearch`, `/cs`, `/search` |
-| Help | `?` or `/usage` |
+| Help | `?` or `/help` |
+| Quota usage | `/usage` or `/quota` |
 | Settings | `/config` or `/settings` |
 | Permissions | `/permissions` |
 | Model | `/model`, `--model <slug>` |
 | Reasoning effort | `/effort`, `/effort <level>`, `--effort <level>` |
-| Plan mode | `/plan` |
+| Plan mode | `/planning` |
 | Cycle execution mode | `Shift+Tab` |
 | Show diffs | `/diff` |
+| Copy an earlier response | `/copy <n>` |
 | Resume session | `/resume` |
 | Rewind session | `/rewind` |
 | Fork session | `/fork` |
 | Add directory | `/add-dir <path>` |
 | Run shell command | `!<command>` |
 | Print mode | `agy -p "<prompt>"` |
+| Structured output | `--output-format json` or `stream-json` |
 | Custom agent | `agy --agent <name>` |
 | Subagent panel | `/agents` |
 | Task logs | `/tasks` |
@@ -88,22 +92,29 @@ C:\Users\<Username>\AppData\Local\agy\bin
 | Log out | `/logout` |
 | Exit | `/exit` |
 
-## What changed in 1.1.5
+## What changed in 1.1.6–1.1.11
 
 | Change | What it means |
 |---|---|
-| `/effort` | View or change reasoning effort without restarting the CLI. |
-| `--effort <level>` | Choose a reasoning-effort variant when launching. |
-| Model slugs | Use the stable model names shown in `/model` with `--model`. |
-| Custom-agent model | Add `model` to agent frontmatter to select a subagent tier; omit it to inherit the parent model. |
-| Command chains | Combine leading slash commands such as `/plan /grill-me` in one prompt. |
-| `/diff` | Scrolling remains stable when lines wrap or comments expand. |
+| Vim editor mode | Enable modal editing for prompts, diff comments, and artifact comments under Editor Mode in `/settings`. |
+| `/copy <n>` and `/codesearch` | Copy an earlier response with `/copy <n>`; code-search results stream progressively and `Esc` cancels an active search. |
+| Structured print output | Use `--output-format json` or `stream-json`, with optional `--json-schema` for a fixed result shape. |
+| Print-mode commands | Skills and slash commands expand in print mode; read-only commands return data without starting an agent turn. Use `--disable-slash-commands` to turn expansion off. |
+| Markdown custom agents | Define agents in `agent.md` files with YAML frontmatter and Markdown instructions. |
+| Enterprise authentication | Sign in with Gemini Enterprise, Workforce Identity Federation, or Application Default Credentials. |
+| Safer permissions | Strict and request-review sessions no longer auto-approve commands, and empty allow rules match nothing. |
+| Sandboxed Git metadata | The terminal sandbox grants read-only access to `.git`. |
+| Plugin state | `config.json` is the single source for whether an installed plugin is enabled. |
+| MCP and subagents | Long-running MCP tools report progress, and stopping a subagent also stops its descendants. |
 
 ## Launch flags and headless mode
 
 | Command or flag | Use |
 |---|---|
 | `agy -p "<prompt>"` | Run once and print the result. |
+| `--output-format <format>` | Return `text`, `json`, or `stream-json`. |
+| `--json-schema <schema>` | Validate output against an inline schema or schema file. |
+| `--disable-slash-commands` | Treat slash-prefixed print input as plain text. |
 | `--model <slug>` | Select a model with a stable model slug. |
 | `--effort <level>` | Select the model's reasoning-effort variant at launch. |
 | `--mode <mode>` | Start in default, accept-edits, or plan mode. |
@@ -114,7 +125,15 @@ C:\Users\<Username>\AppData\Local\agy\bin
 | `--sandbox` | Enable sandboxing for the session. |
 | `AGY_CLI_CMD_OUTPUT_PERCENTAGE` | Limit command output shown in the TUI. |
 
-Print mode returns failures through stderr with a nonzero exit code. Tools that require approval are denied unless a matching allow rule exists, so scripts do not hang on an interactive confirmation.
+Print mode supports structured usage, tool, and subagent data. `stream-json` emits NDJSON events as work progresses. Custom skills and slash commands expand by default; use `--disable-slash-commands` to turn that behavior off.
+
+Read-only commands such as `/usage`, `/quota`, `/credits`, `/model`, `/effort`, and `/skills` return data without starting an agent turn. Interactive-only commands fail with guidance. Tools that require approval are denied unless a matching allow rule exists.
+
+## Authentication
+
+Local sessions reuse valid credentials from Apple Keychain, Linux Secret Service/dbus, or Windows Credential Manager. If no saved session exists, `agy` opens the browser sign-in flow. SSH sessions print an authorization URL and accept the resulting code in the remote terminal.
+
+Enterprise users can sign in with a Gemini Enterprise license on a Google Cloud project. The CLI also supports Workforce Identity Federation through advanced SSO and Application Default Credentials for Agent Platform access.
 
 ## Slash commands
 
@@ -126,10 +145,15 @@ Print mode returns failures through stderr with a nonzero exit code. Tools that 
 | `/clear` | Clear terminal/context. |
 | `/config` (`/settings`) | Open settings. |
 | `/codesearch` (`/cs`, `/search`) | Search workspace code. |
+| `/artifact` | Open artifact review. |
+| `/context` | View context usage. |
+| `/copy <n>` | Copy the latest or n-th most recent response. |
+| `/credits` | View G1 credits. |
 | `/diff` | Show file diffs. |
 | `/exit` | Close CLI. |
 | `/fork` (`/branch`) | Fork session. |
 | `/hooks` | View hooks. |
+| `/help` | Open help. |
 | `/keybindings` | Edit shortcuts. |
 | `/logout` | Clear saved tokens. |
 | `/mcp` | Manage MCP servers. |
@@ -137,7 +161,8 @@ Print mode returns failures through stderr with a nonzero exit code. Tools that 
 | `/effort` (`/effort <level>`) | View or set reasoning effort. |
 | `/open <path>` | Open file. |
 | `/permissions` | Set approvals. |
-| `/plan` | Enter plan mode. |
+| `/fast` | Enable fast mode. |
+| `/planning` | Enter plan mode. |
 | `/rename <name>` | Rename thread. |
 | `/resume` (`/switch`, `/conversation`) | Resume session. |
 | `/rewind` (`/undo`) | Roll back history. |
@@ -145,13 +170,16 @@ Print mode returns failures through stderr with a nonzero exit code. Tools that 
 | `/statusline` | Edit status bar. |
 | `/tasks` | View shell logs. |
 | `/title [on/off]` | Set terminal title. |
-| `/usage` | Open help manual. |
+| `/usage` (`/quota`) | View model quota usage. |
+| `/feedback` | Open feedback panel. |
 
-`/codesearch` uses regular expressions by default. Add `-F` or `--literal` for exact text. Use `f:` or `file:` globs to include or exclude paths.
+`/codesearch` uses regular expressions by default. Add `-F` or `--literal` for exact text. Use `f:` or `file:` globs to include or exclude paths. Results stream progressively, and `Esc` cancels an active search.
 
 ## Keyboard shortcuts
 
 Use `/keybindings` to inspect or edit active shortcuts.
+
+Vim editor mode is optional. Enable it under Editor Mode in `/settings`. In Normal mode, submit with `Ctrl+S` or `Ctrl+Enter`. Insert First starts prompts in Insert mode, where `Enter` submits and `Shift+Enter` or `Ctrl+J` inserts a newline.
 
 | Shortcut | Action |
 |---|---|
@@ -211,12 +239,15 @@ Choose Agent Mode in `/settings`, pass `--mode`, or press `Shift+Tab` to cycle m
 |---|---|
 | `colorScheme` | `"terminal"`; color theme. |
 | `altScreenMode` | `"default"`; screen buffer. |
+| `copyOnSelect` | `true`; copy selected TUI text on mouse release. |
 | `toolPermission` | `"request-review"`; approvals. |
 | `artifactReviewPolicy` | `"asks-for-review"`; artifact review. |
 | `notifications` | `false`; completion alerts. |
 | `showTips` | `true`; prompt tips. |
 | `showFeedbackSurvey` | `true`; feedback prompts. |
 | `editor` | `"auto"`; external editor. |
+| `editorMode` | `"default"`; flat or Vim prompt editing. |
+| `vimInsertFirst` | `false`; start Vim prompts in Insert mode. |
 | `allowNonWorkspaceAccess` | `false`; outside-root access. |
 | `enableTerminalSandbox` | `false`; command sandboxing. |
 | `enableTelemetry` | `true`; metrics and crash logs. |
@@ -232,7 +263,7 @@ Choose Agent Mode in `/settings`, pass `--mode`, or press `Shift+Tab` to cycle m
 | `always-proceed` | No prompts. |
 | `strict` | Prompt for all non-read tools. |
 
-Use `permission.allow` to preapprove file writes or commands. Command rules use strict matching by default; prefix a rule with `regex:` only when a regular expression is required.
+Add reusable grants under `permissions.allow` in `settings.json`. Permission resources include `command(git)`, `write_file(src/)`, `read_url(example.com)`, and `mcp(server/tool)`. Empty and comment-only command rules match nothing.
 
 Enable the terminal sandbox:
 
@@ -246,7 +277,12 @@ Enable the terminal sandbox:
 
 Use `/agents` to inspect background subagents, including nested subagents. Use `/tasks` for shell logs. Use `/skills` for Agent Skills. Use `/mcp` for Model Context Protocol servers. Use `/hooks` for pre-flight and post-format hooks.
 
-Use `--agent <name>` to select a custom agent at launch. The `agent` and `agents` subcommands list available agents. Add `model` to custom-agent frontmatter when a subagent should use a selected model tier; otherwise it inherits the parent model.
+Use `--agent <name>` to select a custom agent at launch. The `agent` and `agents` subcommands list available agents. Custom agents use Markdown files with YAML frontmatter and Markdown instructions. Add `model` when a subagent should use a selected model tier; omit it to inherit the parent model.
+
+| Scope | Custom agent path |
+|---|---|
+| Workspace | `.agents/agents/<name>.md` or `.agents/agents/<name>/agent.md` |
+| Global | `~/.gemini/config/agents/<name>.md` or `~/.gemini/config/agents/<name>/agent.md` |
 
 Plugin layout:
 
@@ -262,6 +298,8 @@ Plugin layout:
 |       `-- rules/
 `-- import_manifest.json
 ```
+
+Installed plugin enablement is stored in `config.json`. The CLI discovers skills from both `skills.json` and the plugin's `skills/` directory.
 
 ## Gemini CLI migration
 
@@ -308,6 +346,7 @@ MCP config changes:
 - [Antigravity CLI Features](https://antigravity.google/docs/cli-features)
 - [Gemini Migration](https://antigravity.google/docs/gcli-migration)
 - [CLI Reference](https://antigravity.google/docs/cli-reference)
+- [Antigravity CLI Releases](https://github.com/google-antigravity/antigravity-cli/releases)
 
 ## More ScriptByAI cheatsheets and resources
 
