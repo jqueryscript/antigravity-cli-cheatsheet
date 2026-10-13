@@ -2,7 +2,7 @@
 
 A compact reference for Google Antigravity CLI (`agy`): install commands, slash commands, shortcuts, settings, permissions, subagents, plugins, MCP, and Gemini CLI migration.
 
-Updated for Antigravity CLI 1.2.12 on September 28, 2026.
+Updated for Antigravity CLI 1.3.4 on October 13, 2026.
 
 ## Contents
 
@@ -17,6 +17,7 @@ Updated for Antigravity CLI 1.2.12 on September 28, 2026.
 - [Permissions and sandbox](#permissions-and-sandbox)
 - [Subagents, plugins, skills, and MCP](#subagents-plugins-skills-and-mcp)
 - [Gemini CLI migration](#gemini-cli-migration)
+- [Troubleshooting](#troubleshooting)
 - [Official sources](#official-sources)
 
 ## Install
@@ -42,6 +43,8 @@ curl -fsSL https://antigravity.google/cli/install.cmd -o install.cmd && install.
 ```
 
 Windows binary: `C:\Users\<Username>\AppData\Local\agy\bin`
+
+Native Android binaries are also available for direct use in Termux without proot-distro.
 
 ### Install flags
 
@@ -96,10 +99,11 @@ Windows binary: `C:\Users\<Username>\AppData\Local\agy\bin`
 | `agy -p "<prompt>"` | Run once and print the result. |
 | `--input-format <format>` | Read a persistent prompt stream; use `stream-json` with matching output. |
 | `--output-format <format>` | Return `text`, `json`, or `stream-json`. |
-| `--json-schema <schema>` | Validate output against an inline schema or schema file. |
+| `--json-schema <schema>` | Use an inline JSON schema or schema file with an object root; invalid schemas exit with code `1`. |
 | `--disable-slash-commands` | Treat slash-prefixed print input as plain text. |
-| `--model <slug>` | Select a model with a stable model slug. |
+| `--model <slug>` | Select a model; base names use the default thinking level when effort is omitted. |
 | `--effort <level>` | Select an effort supported by the chosen model. |
+| `--dangerously-skip-permissions` | Skip tool permission prompts; artifact review still applies. |
 | `--mode <mode>` | Start in default, accept-edits, or plan mode. |
 | `--agent <name>` | Start with a custom agent. |
 | `--remote-control` | Start a session-scoped Remote Control connection. |
@@ -116,6 +120,10 @@ Windows binary: `C:\Users\<Username>\AppData\Local\agy\bin`
 | `AGY_CLI_DISABLE_ESCAPE_SEQUENCE_OPTIMIZATIONS` | Disable terminal escape-sequence optimizations. |
 
 Stream input requires matching `stream-json` output; read-only commands return data without an agent turn, and protected tools need matching allow rules. Print-mode model or API failures emit structured `AGY_ERROR` JSON on stderr and exit with code `3`.
+
+Unknown `--agent` names exit with code `1` in headless mode; interactive sessions warn before using the default agent. Bare schema type names, missing schema files, and non-object roots exit with code `1`. Combining `--print` with `--prompt-interactive` exits with code `2`.
+
+Remote Control is unavailable with Application Default Credentials (`AGY_ADC_AUTH`). Browser Settings exposes the CLI session settings; `agy remote-control serve` loads and saves `settings.json`.
 
 ## Authentication
 
@@ -143,7 +151,7 @@ PowerShell: `$env:GEMINI_API_KEY="<your-api-key>"`. The provider setting is requ
 |---|---|
 | `/add-dir <path>` | Add workspace folder. |
 | `/agents` | Open subagent panel. |
-| `/btw <query>` | Ask side question. |
+| `/btw <query>` | Ask a side question without running user or workspace hooks. |
 | `/clear` (`/new`) | Clear terminal/context. |
 | `/config` (`/settings`) | Open settings. |
 | `/codesearch` (`/cs`, `/search`) | Search workspace code. |
@@ -159,7 +167,9 @@ PowerShell: `$env:GEMINI_API_KEY="<your-api-key>"`. The provider setting is requ
 | `/keybindings` | Edit shortcuts. |
 | `/logout` | Clear saved tokens. |
 | `/mcp` | Manage MCP servers. |
+| `/plugin` (`/plugins`) | Browse the marketplace or run inline `install`, `uninstall`, `enable`, `disable`, and `list`. |
 | `/model` | Open the picker; search by model name or ID. |
+| `/model <name>` | Switch model; base names use the default thinking level when effort is omitted. |
 | `/model <name> <prompt>` | Use another model for one prompt, then return to the current model. |
 | `/effort` (`/effort <level>`) | View or set an effort supported by the selected model. |
 | `/open <path>` | Open file. |
@@ -170,7 +180,7 @@ PowerShell: `$env:GEMINI_API_KEY="<your-api-key>"`. The provider setting is requ
 | `/skills` | Browse skills. |
 | `/skills reload` | Reload discovered skills and slash commands without restarting. |
 | `/statusline` | Edit status bar. |
-| `/tasks` | View shell logs. |
+| `/tasks` | Monitor background commands, timers, recurring jobs, and other background tools. |
 | `/title [on/off]` | Set terminal title. |
 | `/voice` (`/record`) | Start dictation; recordings finalize after 3 minutes 30 seconds. |
 | `/boost <task>` | Run boost mode for a task. |
@@ -207,6 +217,12 @@ Vim: set Editor Mode in `/settings`; Normal mode submits with `Ctrl+S` or `Ctrl+
 | `/` in artifact details | Search the current artifact. |
 | `n` / `N` during search | Next or previous match. |
 | `Shift+N` in diff view | Previous diff. |
+| `j` / `k` in diff file view | Move the line cursor down or up. |
+| `←` / `→` in diff file view | Switch files. |
+| `n` / `N` in diff file view | Next or previous change, including across files. |
+| `Shift+Tab` in `/diff` | Switch to the previous view. |
+| `←` / `→` in `/config` | Change and immediately save the highlighted setting. |
+| `Esc` on an empty prompt with an announcement | Dismiss the current announcement permanently. |
 | `Alt+J` | Jump to subagent. |
 | `Ctrl+K` | Approve subagent action. |
 | `Ctrl+A` | Cursor start. |
@@ -260,7 +276,8 @@ Modes: choose Agent Mode in `/settings`, pass `--mode`, or press `Shift+Tab`.
 | `allowNonWorkspaceAccess` | `false`; outside-root access; writes follow the current cycle mode. |
 | `enableTerminalSandbox` | `false`; command sandboxing. |
 | `enableTelemetry` | `true`; metrics and crash logs. |
-| `verbosity` | `"high"`, `"medium"`, `"low"`; `"medium"` groups related tool calls and thoughts while keeping commands and responses visible. |
+| `verbosity` | Default: `"medium"`; values: `"high"`, `"medium"`, `"low"`; `"medium"` groups related tool calls and thoughts while keeping commands and responses visible. |
+| `queuedMessages` | Queue follow-ups by default; `"send-immediately"` interrupts with new and queued messages in order. |
 | `runningLightSpeed` | `"medium"`; progress animation. |
 
 ## Permissions and sandbox
@@ -273,6 +290,8 @@ Modes: choose Agent Mode in `/settings`, pass `--mode`, or press `Shift+Tab`.
 | `strict` | Prompt for all non-read tools. |
 
 Allow rules live under `permissions.allow` in `settings.json`; resources include `command(git)`, `write_file(src/)`, `read_url(example.com)`, and `mcp(server/tool)`. Empty rules match nothing. Outside-workspace access follows `allowNonWorkspaceAccess`. Sandboxed commands can read and write the CLI artifact and scratch directories.
+
+Windows sandboxed commands run without administrator rights. On macOS, sandboxed commands cannot read `~/Library/Application Support` by default; permit access explicitly in sandbox rules when required. Plans still wait for review with `--dangerously-skip-permissions`; set Artifact Review in `/config` to control automatic approval.
 
 Enable the terminal sandbox:
 
@@ -291,9 +310,24 @@ Custom agents use Markdown files with YAML frontmatter. Launch with `--agent <na
 | Workspace | `.agents/agents/<name>.md` or `.agents/agents/<name>/agent.md` |
 | Global | `~/.gemini/config/agents/<name>.md` or `~/.gemini/config/agents/<name>/agent.md` |
 
-Plugin files: `plugin.json`, `mcp_config.json`, `hooks.json`, `rules.json`, `skills/`, `agents/`, and `rules/` under `~/.gemini/antigravity-cli/plugins/<plugin_name>/`. Enablement is stored in `config.json`. Plugins placed directly in `~/.gemini/config/plugins/` that need MCP variables start disabled until enabled.
+Manage plugins with `/plugin` or `/plugins`. Choose `+ Install from local directory...` for a local folder and complete required settings before enabling the plugin. In the Installed tab, type to search, press `Enter` to finish searching, then use `Space` to toggle a plugin or `Enter` to open details.
 
-Directory entries in `skills.json`, `rules.json`, `agents.json`, and `plugins.json` load direct children only; use `include_only` for nested items. User and workspace rules share a 20,000-token budget.
+| Plugin command | Use |
+|---|---|
+| `agy plugin install <plugin-name>@antigravity-plugins-official` | Install from the official marketplace. |
+| `agy plugin install <path>` | Install a local or remote package. |
+| `agy plugin list` | List all installed plugins with version and enabled state. |
+| `agy plugin list --json` | Return the installed plugin list as JSON. |
+| `agy plugin enable <name>` / `agy plugin disable <name>` | Enable or disable a plugin. |
+| `agy plugin uninstall <name>` | Remove a plugin. |
+
+Plugin files: `plugin.json`, `mcp_config.json`, `hooks.json`, `rules.json`, `skills/`, `agents/`, `agents.json`, and `rules/` under `~/.gemini/antigravity-cli/plugins/<plugin_name>/`. Enablement is stored in `config.json`. Plugins placed directly in `~/.gemini/config/plugins/` that need MCP variables start disabled until enabled.
+
+Plugins can provide executable tools in `bin/` and persistent storage through `PLUGIN_DATA`. If Windows blocks an update or removal because a plugin is open, close other `agy` sessions, Antigravity Hub, or the Remote Control daemon and retry.
+
+Paths in custom-agent `skills:`, `plugins:`, `rules:`, `agents:`, and `hooks:` entries resolve relative to the agent file. Subagents with `branch` or `share` workspaces receive an isolated copy of each repository in a multi-repository workspace.
+
+Directory entries in `skills.json`, `rules.json`, `agents.json`, and `plugins.json` load direct children only; use `include_only` for nested items. User and workspace rules share a 20,000-token budget. Customization manifests load from every parent `.agents/` directory up to the project root when a session starts in a subdirectory.
 
 MCP CLI:
 
@@ -306,7 +340,7 @@ agy mcp disable <name>
 agy mcp remove <name>
 ```
 
-User profile: `~/.gemini/config/mcp_config.json`. Workspace profile: `.agents/mcp_config.json`. Comments and trailing commas are supported.
+User profile: `~/.gemini/config/mcp_config.json`. Workspace profile: `.agents/mcp_config.json`. Comments and trailing commas are supported. MCP servers can keep a tool loaded with `_meta: {"antigravity/alwaysLoad": true}` in its `tools/list` entry. Temporary network failures do not clear saved OAuth sign-ins.
 
 ## Gemini CLI migration
 
@@ -334,6 +368,15 @@ MCP config:
 | `~/.gemini/settings.json` | `~/.gemini/config/mcp_config.json` |
 | Inline MCP server definitions | Standalone `mcp_config.json` profiles |
 | `url` or `httpUrl` | `serverUrl` |
+
+## Troubleshooting
+
+| Problem | Action |
+|---|---|
+| `Authentication expired. Please log back in.` | Sign in again. |
+| Unknown custom agent | Run `agy agents` and use a listed name. |
+| Invalid headless schema | Use a JSON schema with `"type": "object"` at the root. |
+| Remote Control with ADC fails | Use a supported sign-in method; ADC is unavailable for Remote Control. |
 
 ## Official sources
 
