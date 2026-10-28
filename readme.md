@@ -2,7 +2,7 @@
 
 A compact reference for Google Antigravity CLI (`agy`): install commands, slash commands, shortcuts, settings, permissions, subagents, plugins, MCP, and Gemini CLI migration.
 
-Updated for Antigravity CLI 1.3.4 on October 13, 2026.
+Updated for Antigravity CLI 1.4.9 on October 29, 2026.
 
 ## Contents
 
@@ -73,6 +73,7 @@ Native Android binaries are also available for direct use in Termux without proo
 | Show diffs | `/diff` |
 | Copy an earlier response | `/copy <n>` |
 | Resume session | `/resume` |
+| Free conversation context | `/compact` |
 | Rewind session | `/rewind` |
 | Fork session | `/fork` |
 | Add directory | `/add-dir <path>` |
@@ -104,7 +105,7 @@ Native Android binaries are also available for direct use in Termux without proo
 | `--model <slug>` | Select a model; base names use the default thinking level when effort is omitted. |
 | `--effort <level>` | Select an effort supported by the chosen model. |
 | `--dangerously-skip-permissions` | Skip tool permission prompts; artifact review still applies. |
-| `--mode <mode>` | Start in default, accept-edits, or plan mode. |
+| `--mode <mode>` | Start in default, accept-edits, auto (where available), or plan mode. |
 | `--agent <name>` | Start with a custom agent. |
 | `--remote-control` | Start a session-scoped Remote Control connection. |
 | `agy models` | List models; add `--output-format json` for machine-readable output. |
@@ -117,6 +118,8 @@ Native Android binaries are also available for direct use in Termux without proo
 | `--print-timeout <duration>` | Set a maximum print-mode wait; the default is unlimited. |
 | `AGY_CLI_CMD_OUTPUT_PERCENTAGE` | Limit command output shown in the TUI. |
 | `AGY_CLI_HIDE_LOGO` | Hide the startup logo. |
+| `AGY_CLI_OSC7501` | `off` disables terminal status reporting; `on` forces it for a supporting terminal. |
+| `AGY_CLI_OSC7501_MESSAGES` | `brief` omits pending command and question details from terminal status reports. |
 | `AGY_CLI_DISABLE_ESCAPE_SEQUENCE_OPTIMIZATIONS` | Disable terminal escape-sequence optimizations. |
 
 Stream input requires matching `stream-json` output; read-only commands return data without an agent turn, and protected tools need matching allow rules. Print-mode model or API failures emit structured `AGY_ERROR` JSON on stderr and exit with code `3`.
@@ -157,6 +160,7 @@ PowerShell: `$env:GEMINI_API_KEY="<your-api-key>"`. The provider setting is requ
 | `/codesearch` (`/cs`, `/search`) | Search workspace code. |
 | `/artifact` | Open artifact review. |
 | `/context` | View context usage. |
+| `/compact`, `/compact <message>` | Summarize the conversation; add a message to continue afterward. |
 | `/copy <n>` | Copy the latest or n-th most recent response. |
 | `/credits` | View G1 credits. |
 | `/diff` | Show file diffs. |
@@ -181,6 +185,7 @@ PowerShell: `$env:GEMINI_API_KEY="<your-api-key>"`. The provider setting is requ
 | `/skills reload` | Reload discovered skills and slash commands without restarting. |
 | `/statusline` | Edit status bar. |
 | `/tasks` | Monitor background commands, timers, recurring jobs, and other background tools. |
+| `/schedule <when> <task>` | Schedule a one-time or recurring task. |
 | `/title [on/off]` | Set terminal title. |
 | `/voice` (`/record`) | Start dictation; recordings finalize after 3 minutes 30 seconds. |
 | `/boost <task>` | Run boost mode for a task. |
@@ -190,6 +195,10 @@ PowerShell: `$env:GEMINI_API_KEY="<your-api-key>"`. The provider setting is requ
 | `/remote-control` | Start Remote Control for this session; use `/remote-control off` to stop. |
 
 `/codesearch` uses regular expressions by default. Add `-F` or `--literal` for exact text. Use `f:` or `file:` globs to include or exclude paths. Results stream progressively, and `Esc` cancels an active search.
+
+`/compact` summarizes the conversation and ends the turn; `/compact <message>` compacts first, then answers the message. Attachments remain available after compaction. Press `Esc` to cancel while it runs.
+
+Recurring cron schedules may use a fixed offset within their period; request exact timing when needed. Fixed-time daily jobs stay within their scheduled minute; `@every` schedules are unchanged.
 
 ## Keyboard shortcuts
 
@@ -208,6 +217,7 @@ Vim: set Editor Mode in `/settings`; Normal mode submits with `Ctrl+S` or `Ctrl+
 | `F5` | Start or stop voice dictation. |
 | `Ctrl+L` | Clear screen. |
 | `Ctrl+V` | Paste. |
+| `Alt+M` | Send immediately in Queue mode, or queue in Send Immediately mode. |
 | `Alt+V` | Alternative paste on Windows. |
 | `Ctrl+G` | Open prompt, diff, or confirmation in `$EDITOR`. |
 | `Ctrl+O` | Toggle details. |
@@ -219,15 +229,18 @@ Vim: set Editor Mode in `/settings`; Normal mode submits with `Ctrl+S` or `Ctrl+
 | `Shift+N` in diff view | Previous diff. |
 | `j` / `k` in diff file view | Move the line cursor down or up. |
 | `←` / `→` in diff file view | Switch files. |
-| `n` / `N` in diff file view | Next or previous change, including across files. |
+| `n` / `N` in diff file view | Next or previous change across files; during search, step through matches. |
 | `Shift+Tab` in `/diff` | Switch to the previous view. |
+| `/` in `/diff` | Search the file list or file view; `Enter` jumps to the first match, `n` / `N` steps through matches. |
+| `Ctrl+O` / `f` in diff file view | Toggle the nearest fold / whole-file view in All Changes, Per Turn, and Commit Tree. |
+| `[` / `]` in Per Turn | Jump to the first file of the previous or next turn in the list or file view; wrap at either end. |
 | `←` / `→` in `/config` | Change and immediately save the highlighted setting. |
 | `Esc` on an empty prompt with an announcement | Dismiss the current announcement permanently. |
 | `Alt+J` | Jump to subagent. |
-| `Ctrl+K` | Approve subagent action. |
+| `Ctrl+K` | Approve a pending subagent action or open its question picker. |
 | `Ctrl+A` | Cursor start. |
 | `Ctrl+E` | Cursor end. |
-| `Ctrl+Z` | Undo text. |
+| `Ctrl+_`, `Ctrl+Shift+-` | Undo text; `Ctrl+Z` also works where supported. |
 | `Ctrl+Shift+Z` | Redo text. |
 | `Up` / `Down` | Move selection. |
 | `PgUp` / `Shift+Up` | Scroll up. |
@@ -235,6 +248,10 @@ Vim: set Editor Mode in `/settings`; Normal mode submits with `Ctrl+S` or `Ctrl+
 | `Tab` | Accept autofill. |
 | `y` / `n` at confirmation | Approve or reject. |
 | `A` | Approve all artifacts. |
+
+Paste an image with the terminal paste shortcut, such as `Cmd+V` or `Ctrl+Shift+V`, or drag an image file into the prompt. SSH image paste supports X11 or Wayland forwarding; install `wl-clipboard` if the CLI reports it missing on Wayland.
+
+Diff folding and whole-file view require the file on disk to match the diff and are disabled above 100,000 lines or 10 MB. Binary files and untracked files over 1 MB appear in the file list without a text preview.
 
 ## Execution modes
 
@@ -244,7 +261,12 @@ Modes: choose Agent Mode in `/settings`, pass `--mode`, or press `Shift+Tab`.
 |---|---|
 | `default` | Review file writes before they run. |
 | `accept-edits` | Accept file edits automatically. |
+| `auto` (Preview) | Approve workspace edits and sandboxed commands automatically; review commands outside the sandbox and prompt for risky actions. |
 | `plan` | Plan without applying edits. |
+
+Launch Auto mode with `agy --mode=auto` or save `"agentMode": "auto"` in `settings.json`. Cycle `default` → `accept-edits` → `auto` → `plan` with `Shift+Tab`; unavailable modes are skipped.
+
+Auto mode requires a personal Google Account and an available terminal sandbox. It supports macOS and Linux from 1.3.5 and Windows from 1.4.4. Windows requires Windows 11 24H2 or later with the August 2026 update or later. Business and enterprise accounts cannot use Auto mode. On unsupported systems, Auto mode is hidden; headless `--mode=auto` warns and uses `default` mode.
 
 ## Settings and paths
 
@@ -261,6 +283,7 @@ Modes: choose Agent Mode in `/settings`, pass `--mode`, or press `Shift+Tab`.
 
 | Setting | Default and use |
 |---|---|
+| `agentMode` | `""` (default), `"accept-edits"`, `"auto"`, or `"plan"`; startup mode. |
 | `colorScheme` | `"terminal"`; color theme. |
 | `altScreenMode` | `"default"`; screen buffer. |
 | `copyOnSelect` | `true`; copy selected TUI text on mouse release. |
@@ -271,11 +294,11 @@ Modes: choose Agent Mode in `/settings`, pass `--mode`, or press `Shift+Tab`.
 | `showFeedbackSurvey` | `true`; feedback prompts. |
 | `editor` | `"auto"`; external editor. |
 | `editorMode` | `"default"`; flat or Vim prompt editing. |
-| `pickerGrouping` | `"flat"`; set to `"grouped"` to group `/resume` sessions by workspace. |
+| `pickerGrouping` | `"none"`; set to `"grouped"` to group `/resume` sessions by workspace. |
 | `vimInsertFirst` | `false`; start Vim prompts in Insert mode. |
 | `allowNonWorkspaceAccess` | `false`; outside-root access; writes follow the current cycle mode. |
 | `enableTerminalSandbox` | `false`; command sandboxing. |
-| `enableTelemetry` | `true`; metrics and crash logs. |
+| Enable Telemetry in `/config` | Account preference; no `settings.json` key. Business accounts show `off (disabled)`. |
 | `verbosity` | Default: `"medium"`; values: `"high"`, `"medium"`, `"low"`; `"medium"` groups related tool calls and thoughts while keeping commands and responses visible. |
 | `queuedMessages` | Queue follow-ups by default; `"send-immediately"` interrupts with new and queued messages in order. |
 | `runningLightSpeed` | `"medium"`; progress animation. |
@@ -285,13 +308,15 @@ Modes: choose Agent Mode in `/settings`, pass `--mode`, or press `Shift+Tab`.
 | Preset | Behavior |
 |---|---|
 | `request-review` | Prompt before risky tools. |
-| `proceed-in-sandbox` | Auto-proceed in sandbox. |
-| `always-proceed` | No prompts. |
-| `strict` | Prompt for all non-read tools. |
+| `proceed-in-sandbox` | Auto-run sandboxed commands; fall back to `request-review` if the sandbox is unavailable. |
+| `always-proceed` | No prompts unless an ask or deny rule matches. |
+| `strict` | Prompt before every tool action, including reads; allow rules do not bypass it. |
 
 Allow rules live under `permissions.allow` in `settings.json`; resources include `command(git)`, `write_file(src/)`, `read_url(example.com)`, and `mcp(server/tool)`. Empty rules match nothing. Outside-workspace access follows `allowNonWorkspaceAccess`. Sandboxed commands can read and write the CLI artifact and scratch directories.
 
-Windows sandboxed commands run without administrator rights. On macOS, sandboxed commands cannot read `~/Library/Application Support` by default; permit access explicitly in sandbox rules when required. Plans still wait for review with `--dangerously-skip-permissions`; set Artifact Review in `/config` to control automatic approval.
+Windows sandboxed commands run without administrator rights on supported Windows 11 systems. If the sandbox is unavailable, sandboxed permission presets fall back to review prompts; `--sandbox` and `enableTerminalSandbox` have no effect. On macOS, sandboxed commands cannot read `~/Library/Application Support` by default; permit access explicitly in sandbox rules when required. Sandboxed commands cannot read or modify `~/.docker`, `~/.kube`, or `~/_netrc` without explicit access. Plans still wait for review with `--dangerously-skip-permissions`; set Artifact Review in `/config` to control automatic approval.
+
+Conversation-level approvals apply across the main agent and its subagents. Approving `execute_url` for a Google site does not also approve sensitive Google apps such as `mail.google.com`, `docs.google.com`, `drive.google.com`, `accounts.google.com`, or `console.cloud.google.com`; each needs its own approval.
 
 Enable the terminal sandbox:
 
@@ -318,8 +343,13 @@ Manage plugins with `/plugin` or `/plugins`. Choose `+ Install from local direct
 | `agy plugin install <path>` | Install a local or remote package. |
 | `agy plugin list` | List all installed plugins with version and enabled state. |
 | `agy plugin list --json` | Return the installed plugin list as JSON. |
+| `agy plugin validate <path> [--strict] [--json]` | Validate a plugin directory or `plugin.json`; `--strict` fails on warnings, `--json` returns a CI report. |
 | `agy plugin enable <name>` / `agy plugin disable <name>` | Enable or disable a plugin. |
 | `agy plugin uninstall <name>` | Remove a plugin. |
+
+Open `Configure MCP servers...` in an installed plugin to set or change server variables. Saving restarts its enabled servers; `needs setup` marks missing values.
+
+Use `agy plugin validate <path> --strict` before publishing. It checks manifests, skills, agents, rules, hooks, sidecars, MCP configuration, context providers, and referenced files. Use lowercase kebab-case plugin names and valid logo paths. Hook stdin JSON includes `lastUserInput` with the latest user message.
 
 Plugin files: `plugin.json`, `mcp_config.json`, `hooks.json`, `rules.json`, `skills/`, `agents/`, `agents.json`, and `rules/` under `~/.gemini/antigravity-cli/plugins/<plugin_name>/`. Enablement is stored in `config.json`. Plugins placed directly in `~/.gemini/config/plugins/` that need MCP variables start disabled until enabled.
 
@@ -340,7 +370,7 @@ agy mcp disable <name>
 agy mcp remove <name>
 ```
 
-User profile: `~/.gemini/config/mcp_config.json`. Workspace profile: `.agents/mcp_config.json`. Comments and trailing commas are supported. MCP servers can keep a tool loaded with `_meta: {"antigravity/alwaysLoad": true}` in its `tools/list` entry. Temporary network failures do not clear saved OAuth sign-ins.
+User profile: `~/.gemini/config/mcp_config.json`. Workspace profile: `.agents/mcp_config.json`. Comments and trailing commas are supported. MCP servers can keep a tool loaded with `_meta: {"antigravity/alwaysLoad": true}` in its `tools/list` entry. Temporary network failures do not clear saved OAuth sign-ins. Plugin MCP OAuth tokens belong to the signed-in user; changing accounts or signing out reconnects the servers and may require another sign-in. MCP `tools/call` requests include `_meta["antigravity.google/root_conversation_id"]` with the top-level conversation ID.
 
 ## Gemini CLI migration
 
@@ -377,6 +407,9 @@ MCP config:
 | Unknown custom agent | Run `agy agents` and use a listed name. |
 | Invalid headless schema | Use a JSON schema with `"type": "object"` at the root. |
 | Remote Control with ADC fails | Use a supported sign-in method; ADC is unavailable for Remote Control. |
+| Auto mode is missing | Use a personal Google Account and a supported terminal sandbox. Windows needs Windows 11 24H2 with the August 2026 update or later. |
+| Docker or Kubernetes credentials are blocked | Grant sandbox access explicitly to the required `~/.docker` or `~/.kube` path. |
+| Image paste finds no image | Copy only an image, then use the terminal paste shortcut or drag the image file into the prompt. Install the clipboard utility named in the error. |
 
 ## Official sources
 
