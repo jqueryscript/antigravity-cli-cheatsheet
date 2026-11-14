@@ -2,7 +2,7 @@
 
 A compact reference for Google Antigravity CLI (`agy`): install commands, slash commands, shortcuts, settings, permissions, subagents, plugins, MCP, and Gemini CLI migration.
 
-Updated for Antigravity CLI 1.4.9 on October 29, 2026.
+Updated for Antigravity CLI 1.5.8 on November 13, 2026.
 
 ## Contents
 
@@ -77,6 +77,7 @@ Native Android binaries are also available for direct use in Termux without proo
 | Rewind session | `/rewind` |
 | Fork session | `/fork` |
 | Add directory | `/add-dir <path>` |
+| `/projects` | List, create, edit, or switch projects. Switching local projects adds their folders and starts a new conversation. |
 | Run shell command | `!<command>` |
 | Print mode | `agy -p "<prompt>"` |
 | Stream prompts | `--input-format stream-json` |
@@ -104,10 +105,12 @@ Native Android binaries are also available for direct use in Termux without proo
 | `--disable-slash-commands` | Treat slash-prefixed print input as plain text. |
 | `--model <slug>` | Select a model; base names use the default thinking level when effort is omitted. |
 | `--effort <level>` | Select an effort supported by the chosen model. |
-| `--dangerously-skip-permissions` | Skip tool permission prompts; artifact review still applies. |
+| `--dangerously-skip-permissions` | Skip routine tool prompts. Explicit denies, the system command denylist, enterprise policy, and artifact review still apply. |
 | `--mode <mode>` | Start in default, accept-edits, auto (where available), or plan mode. |
 | `--agent <name>` | Start with a custom agent. |
 | `--remote-control` | Start a session-scoped Remote Control connection. |
+| `--remote-agent` | Run on a remote agent. Use `--project <name-or-id>` to choose a remote project, or omit it to use your default. |
+| `agy acp` | Start an Agent Client Protocol server over stdio for an editor. Use `agy acp --login` to sign in from a terminal. |
 | `agy models` | List models; add `--output-format json` for machine-readable output. |
 | `agy agent`, `agy agents` | List available custom agents. |
 | `--continue`, `-c` | Continue the most recent conversation. |
@@ -115,7 +118,7 @@ Native Android binaries are also available for direct use in Termux without proo
 | `--project <project>` | Open an existing project by name or ID. |
 | `--new-project <name>` | Create a project. |
 | `--sandbox` | Enable sandboxing for the session. |
-| `--print-timeout <duration>` | Set a maximum print-mode wait; the default is unlimited. |
+| `--print-timeout <duration>` | Set a maximum headless wait. A timed-out turn returns available partial output and exits with code `3`. |
 | `AGY_CLI_CMD_OUTPUT_PERCENTAGE` | Limit command output shown in the TUI. |
 | `AGY_CLI_HIDE_LOGO` | Hide the startup logo. |
 | `AGY_CLI_OSC7501` | `off` disables terminal status reporting; `on` forces it for a supporting terminal. |
@@ -127,6 +130,8 @@ Stream input requires matching `stream-json` output; read-only commands return d
 Unknown `--agent` names exit with code `1` in headless mode; interactive sessions warn before using the default agent. Bare schema type names, missing schema files, and non-object roots exit with code `1`. Combining `--print` with `--prompt-interactive` exits with code `2`.
 
 Remote Control is unavailable with Application Default Credentials (`AGY_ADC_AUTH`). Browser Settings exposes the CLI session settings; `agy remote-control serve` loads and saves `settings.json`.
+
+Without `--print-timeout`, a headless run waits for background tasks. JSON and stream-JSON results include `finished_reason` on early exit. Check for `print_timeout`, `interrupted`, or `error` before treating a result as complete.
 
 ## Authentication
 
@@ -148,13 +153,15 @@ export GOOGLE_GEMINI_BASE_URL="<endpoint>"
 
 PowerShell: `$env:GEMINI_API_KEY="<your-api-key>"`. The provider setting is required; `.env` and `GOOGLE_API_KEY` are not used for this mode. Exhausted daily quotas, project spend caps, or prepaid credits stop retries immediately; short per-minute limits still retry.
 
+With `GEMINI_API_KEY` or Application Default Credentials (`AGY_ADC_AUTH`), `/model` and `--model` offer Gemini 4 Hydrogen (Low, Medium, High, XHigh) and Gemini 4 Carbon (Low, Medium, High). Run `agy models` to find the available model slugs. Google Cloud sign-in lets you choose a Gemini subscription or Pay As You Go.
+
 ## Slash commands
 
 | Command | Use |
 |---|---|
 | `/add-dir <path>` | Add workspace folder. |
 | `/agents` | Open subagent panel. |
-| `/btw <query>` | Ask a side question without running user or workspace hooks. |
+| `/btw <query>` | Ask a side question. Read and search tools can run, and calls that require approval stop the side question. |
 | `/clear` (`/new`) | Clear terminal/context. |
 | `/config` (`/settings`) | Open settings. |
 | `/codesearch` (`/cs`, `/search`) | Search workspace code. |
@@ -190,6 +197,8 @@ PowerShell: `$env:GEMINI_API_KEY="<your-api-key>"`. The provider setting is requ
 | `/voice` (`/record`) | Start dictation; recordings finalize after 3 minutes 30 seconds. |
 | `/boost <task>` | Run boost mode for a task. |
 | `/teamwork-preview <task>` (`/teamwork`) | Start a collaborative agent-team task. |
+| `/swarm <task>` | Start a preview swarm with parallel workers and a shared message board. Each worker uses your quota. |
+| `/swarm board` | Open the live roster and posts. `Alt+S` opens the board and `Esc` goes back. |
 | `/usage` (`/quota`) | View model quota usage. |
 | `/feedback` | Open feedback panel. |
 | `/remote-control` | Start Remote Control for this session; use `/remote-control off` to stop. |
@@ -199,6 +208,8 @@ PowerShell: `$env:GEMINI_API_KEY="<your-api-key>"`. The provider setting is requ
 `/compact` summarizes the conversation and ends the turn; `/compact <message>` compacts first, then answers the message. Attachments remain available after compaction. Press `Esc` to cancel while it runs.
 
 Recurring cron schedules may use a fixed offset within their period; request exact timing when needed. Fixed-time daily jobs stay within their scheduled minute; `@every` schedules are unchanged.
+
+Remote sessions search remote files for `@` mentions. Cloud plugin skills connected through `/plugin` appear in the slash menu and under Remote agent skills in `/skills`. In `/config`, the TUI tab configures the terminal interface and the Remote Agent tab configures the remote agent.
 
 ## Keyboard shortcuts
 
@@ -253,6 +264,8 @@ Paste an image with the terminal paste shortcut, such as `Cmd+V` or `Ctrl+Shift+
 
 Diff folding and whole-file view require the file on disk to match the diff and are disabled above 100,000 lines or 10 MB. Binary files and untracked files over 1 MB appear in the file list without a text preview.
 
+macOS Option shortcuts work by default. Set `AGY_CLI_MAC_OPTION_AS_ALT=0` to restore the previous behavior. In `full screen (altscreen)` rendering mode, click a tool group, thought, image attachment, or multiline command output to expand or collapse it.
+
 ## Execution modes
 
 Modes: choose Agent Mode in `/settings`, pass `--mode`, or press `Shift+Tab`.
@@ -264,9 +277,9 @@ Modes: choose Agent Mode in `/settings`, pass `--mode`, or press `Shift+Tab`.
 | `auto` (Preview) | Approve workspace edits and sandboxed commands automatically; review commands outside the sandbox and prompt for risky actions. |
 | `plan` | Plan without applying edits. |
 
-Launch Auto mode with `agy --mode=auto` or save `"agentMode": "auto"` in `settings.json`. Cycle `default` → `accept-edits` → `auto` → `plan` with `Shift+Tab`; unavailable modes are skipped.
+With no saved Agent Mode, interactive and headless sessions start in Auto where available and Default elsewhere. To always start in Default, choose Default under Agent Mode in `/config`. This saves `"agentMode": ""` in `settings.json`. The `strict` tool permission preset still requires approval for edits in Auto and Accept Edits.
 
-Auto mode requires a personal Google Account and an available terminal sandbox. It supports macOS and Linux from 1.3.5 and Windows from 1.4.4. Windows requires Windows 11 24H2 or later with the August 2026 update or later. Business and enterprise accounts cannot use Auto mode. On unsupported systems, Auto mode is hidden; headless `--mode=auto` warns and uses `default` mode.
+Auto mode requires a supported terminal sandbox and an eligible account, such as a personal Google Account or a pay-as-you-go Google Cloud account using Application Default Credentials. Gemini Enterprise follows its admin permission policy. On Windows, Auto requires Windows 11 24H2 or later with the August 2026 update or later. An explicit headless `--mode=auto` falls back to Default with a warning if Auto is unavailable.
 
 ## Settings and paths
 
@@ -283,7 +296,7 @@ Auto mode requires a personal Google Account and an available terminal sandbox. 
 
 | Setting | Default and use |
 |---|---|
-| `agentMode` | `""` (default), `"accept-edits"`, `"auto"`, or `"plan"`; startup mode. |
+| `agentMode` | `""` (Default), `"accept-edits"`, `"auto"`, or `"plan"`. An unset value selects Auto where available. |
 | `colorScheme` | `"terminal"`; color theme. |
 | `altScreenMode` | `"default"`; screen buffer. |
 | `copyOnSelect` | `true`; copy selected TUI text on mouse release. |
@@ -325,6 +338,10 @@ Enable the terminal sandbox:
   "enableTerminalSandbox": true
 }
 ```
+
+Always-allow command rules require an exact match in Windows PowerShell and Command Prompt. MCP ask and deny rules also apply to eager servers and tools used by the `/browser` subagent. Enterprise-required reviews take precedence over user allow rules and hook auto-approval. In headless runs, `--dangerously-skip-permissions` denies actions that require enterprise review.
+
+Enterprise model gateways require HTTPS for remote hosts. Admins can set `gateway.routeWebFetch` to require `proxy.address` for URL reads and use `featureControls.remoteControlEnabled` to disable Remote Control.
 
 ## Subagents, plugins, skills, and MCP
 
@@ -372,6 +389,10 @@ agy mcp remove <name>
 
 User profile: `~/.gemini/config/mcp_config.json`. Workspace profile: `.agents/mcp_config.json`. Comments and trailing commas are supported. MCP servers can keep a tool loaded with `_meta: {"antigravity/alwaysLoad": true}` in its `tools/list` entry. Temporary network failures do not clear saved OAuth sign-ins. Plugin MCP OAuth tokens belong to the signed-in user; changing accounts or signing out reconnects the servers and may require another sign-in. MCP `tools/call` requests include `_meta["antigravity.google/root_conversation_id"]` with the top-level conversation ID.
 
+Hook input includes `hookEventName` and `cwd`. Use `toolCall.id` to pair pre- and post-tool calls and `continuation_active` in a Stop hook to avoid requesting the same continuation twice. A PreInvocation hook can return `"terminationBehavior": "terminate"` to stop the turn before it reaches the model. Plugin hooks receive `PLUGIN_ROOT` and `PLUGIN_DATA`. Relative paths in hook commands support older CLI versions.
+
+Plugin API key providers in `auth.json` can use `"optional": true`. A missing key then allows unauthenticated requests. When importing Claude Code plugins, check the summary for hooks or MCP servers that need manual migration. Workspace plugin and skill entries must resolve inside the workspace or repository root.
+
 ## Gemini CLI migration
 
 First launch: `agy` detects legacy Gemini CLI profiles. Manual extension import: `agy plugin import gemini`.
@@ -407,7 +428,9 @@ MCP config:
 | Unknown custom agent | Run `agy agents` and use a listed name. |
 | Invalid headless schema | Use a JSON schema with `"type": "object"` at the root. |
 | Remote Control with ADC fails | Use a supported sign-in method; ADC is unavailable for Remote Control. |
-| Auto mode is missing | Use a personal Google Account and a supported terminal sandbox. Windows needs Windows 11 24H2 with the August 2026 update or later. |
+| Auto mode is missing | Check account eligibility and terminal sandbox support. Windows needs Windows 11 24H2 or later with the August 2026 update or later. |
+| Plugin or plugin MCP server needs sign-in | Open `/plugin` and connect the plugin from the Installed tab. |
+| Endpoint security blocks bundled ripgrep | Set `ANTIGRAVITY_DISABLE_EMBEDDED_RIPGREP=true` to use ripgrep on your PATH or the built-in search. |
 | Docker or Kubernetes credentials are blocked | Grant sandbox access explicitly to the required `~/.docker` or `~/.kube` path. |
 | Image paste finds no image | Copy only an image, then use the terminal paste shortcut or drag the image file into the prompt. Install the clipboard utility named in the error. |
 
