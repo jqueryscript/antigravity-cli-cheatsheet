@@ -2,7 +2,7 @@
 
 A compact reference for Google Antigravity CLI (`agy`): install commands, slash commands, shortcuts, settings, permissions, subagents, plugins, MCP, and Gemini CLI migration.
 
-Updated for Antigravity CLI 1.5.8 on November 13, 2026.
+Updated for Antigravity CLI 1.5.12 on November 19, 2026.
 
 ## Contents
 
@@ -72,7 +72,7 @@ Native Android binaries are also available for direct use in Termux without proo
 | Voice dictation | `/voice`, `/record`, `F5` |
 | Show diffs | `/diff` |
 | Copy an earlier response | `/copy <n>` |
-| Resume session | `/resume` |
+| Resume session | `/resume`, `/resume <id-or-prefix>` |
 | Free conversation context | `/compact` |
 | Rewind session | `/rewind` |
 | Fork session | `/fork` |
@@ -129,7 +129,11 @@ Stream input requires matching `stream-json` output; read-only commands return d
 
 Unknown `--agent` names exit with code `1` in headless mode; interactive sessions warn before using the default agent. Bare schema type names, missing schema files, and non-object roots exit with code `1`. Combining `--print` with `--prompt-interactive` exits with code `2`.
 
-Remote Control is unavailable with Application Default Credentials (`AGY_ADC_AUTH`). Browser Settings exposes the CLI session settings; `agy remote-control serve` loads and saves `settings.json`.
+Remote Control is unavailable with Application Default Credentials (`AGY_ADC_AUTH`). Browser Settings exposes the CLI session settings, and `agy remote-control serve` loads and saves `settings.json`.
+
+Remote agent sessions start in Default and ask before file edits. Press `Shift+Tab` to switch between Default and Accept Edits. In desktop Remote Control, use the conversation menu to choose **Split Right** or **Split Down**. In the browser, `[` and `]` jump between prompts, and attachments can be up to 20 MB.
+
+The CLI stops a session’s subagents and background tasks when the editor cancels a prompt or closes the ACP session.
 
 Without `--print-timeout`, a headless run waits for background tasks. JSON and stream-JSON results include `finished_reason` on early exit. Check for `print_timeout`, `interrupted`, or `error` before treating a result as complete.
 
@@ -151,9 +155,15 @@ export GEMINI_API_KEY="<your-api-key>"
 export GOOGLE_GEMINI_BASE_URL="<endpoint>"
 ```
 
-PowerShell: `$env:GEMINI_API_KEY="<your-api-key>"`. The provider setting is required; `.env` and `GOOGLE_API_KEY` are not used for this mode. Exhausted daily quotas, project spend caps, or prepaid credits stop retries immediately; short per-minute limits still retry.
+PowerShell: `$env:GEMINI_API_KEY="<your-api-key>"`. The provider setting is required; `.env` and `GOOGLE_API_KEY` are not used for this mode. The CLI retries temporary model rate or capacity limits when the server requests a delay of up to four minutes. Exhausted daily or weekly quotas, spending caps, and depleted prepaid balances stop the turn immediately.
 
-With `GEMINI_API_KEY` or Application Default Credentials (`AGY_ADC_AUTH`), `/model` and `--model` offer Gemini 4 Hydrogen (Low, Medium, High, XHigh) and Gemini 4 Carbon (Low, Medium, High). Run `agy models` to find the available model slugs. Google Cloud sign-in lets you choose a Gemini subscription or Pay As You Go.
+Remote Control, remote agents, voice dictation, and account quota and credit commands are unavailable with a Gemini API key. Use Google AI Studio to check key usage. The `--remote-control` and `--remote-agent` flags and headless `/usage`, `/quota`, and `/credits` exit with code `2`.
+
+With `GEMINI_API_KEY`, choose Gemini 4 Neon or Hydrogen at Low, Medium, High, or XHigh, or Carbon at Low, Medium, or High. Run `agy models` to list the models and slugs for your sign-in method. For example, use `--model gemini-4-neon-xhigh` for Neon at XHigh.
+
+Orchestrator uses the selected planner for planning and Gemini 4 Hydrogen for implementation. In `/model`, use the Planner choice when several options are available. Pass the full name to `--model`, such as `--model "Orchestrator (Neon)"`. Gemini Enterprise and ADC users can select the Carbon planner when both Carbon (High) and Hydrogen (High) are available.
+
+Google Cloud sign-in lets you choose a Gemini subscription or Pay As You Go.
 
 ## Slash commands
 
@@ -172,7 +182,7 @@ With `GEMINI_API_KEY` or Application Default Credentials (`AGY_ADC_AUTH`), `/mod
 | `/credits` | View G1 credits. |
 | `/diff` | Show file diffs. |
 | `/exit` (`/quit`) | Close CLI. |
-| `/fork` (`/branch`) | Fork session. |
+| `/fork` (`/branch`) | Fork the conversation. For large artifact folders, the fork references files in the original conversation. Deleting the original also deletes those files. |
 | `/hooks` | View hooks. |
 | `/help` | Open help. |
 | `/keybindings` | Edit shortcuts. |
@@ -186,7 +196,7 @@ With `GEMINI_API_KEY` or Application Default Credentials (`AGY_ADC_AUTH`), `/mod
 | `/open <path>` | Open file. |
 | `/permissions` | Set approvals. |
 | `/rename <name>` | Rename thread. |
-| `/resume` (`/switch`, `/conversation`) | Resume session. |
+| `/resume` (`/switch`, `/conversation`) | Open the picker. Pass an ID or a unique ID prefix to resume directly. |
 | `/rewind` (`/undo`) | Roll back history. |
 | `/skills` | Browse skills. |
 | `/skills reload` | Reload discovered skills and slash commands without restarting. |
@@ -194,9 +204,11 @@ With `GEMINI_API_KEY` or Application Default Credentials (`AGY_ADC_AUTH`), `/mod
 | `/tasks` | Monitor background commands, timers, recurring jobs, and other background tools. |
 | `/schedule <when> <task>` | Schedule a one-time or recurring task. |
 | `/title [on/off]` | Set terminal title. |
-| `/voice` (`/record`) | Start dictation; recordings finalize after 3 minutes 30 seconds. |
+| `/voice` (`/record`) | Start dictation with a supported account. Recordings finalize after 3 minutes 30 seconds. |
 | `/boost <task>` | Run boost mode for a task. |
 | `/teamwork-preview <task>` (`/teamwork`) | Start a collaborative agent-team task. |
+| `/run-workflow <task>` | Run parallel or staged subagents with bundled Python. Google lists the slash command for AI Pro and AI Ultra. |
+| `/browser <task>` | Launch a sandboxed browser subagent. Recordings use MP4. |
 | `/swarm <task>` | Start a preview swarm with parallel workers and a shared message board. Each worker uses your quota. |
 | `/swarm board` | Open the live roster and posts. `Alt+S` opens the board and `Esc` goes back. |
 | `/usage` (`/quota`) | View model quota usage. |
@@ -339,6 +351,8 @@ Enable the terminal sandbox:
 }
 ```
 
+Sandboxed commands cannot read `~/.config` (or `XDG_CONFIG_HOME`), `~/.git-credentials`, or Windows `AppData\Roaming` by default. Common developer-tool settings remain readable. Allow a specific path in your sandbox rules if a tool needs it.
+
 Always-allow command rules require an exact match in Windows PowerShell and Command Prompt. MCP ask and deny rules also apply to eager servers and tools used by the `/browser` subagent. Enterprise-required reviews take precedence over user allow rules and hook auto-approval. In headless runs, `--dangerously-skip-permissions` denies actions that require enterprise review.
 
 Enterprise model gateways require HTTPS for remote hosts. Admins can set `gateway.routeWebFetch` to require `proxy.address` for URL reads and use `featureControls.remoteControlEnabled` to disable Remote Control.
@@ -360,13 +374,15 @@ Manage plugins with `/plugin` or `/plugins`. Choose `+ Install from local direct
 | `agy plugin install <path>` | Install a local or remote package. |
 | `agy plugin list` | List all installed plugins with version and enabled state. |
 | `agy plugin list --json` | Return the installed plugin list as JSON. |
-| `agy plugin validate <path> [--strict] [--json]` | Validate a plugin directory or `plugin.json`; `--strict` fails on warnings, `--json` returns a CI report. |
+| `agy plugin validate <path> [--strict] [--json]` | Validate a local plugin directory, manifest, ZIP file, HTTPS ZIP URL, or GitHub repository URL. `--strict` fails on warnings and `--json` returns a machine-readable report. |
 | `agy plugin enable <name>` / `agy plugin disable <name>` | Enable or disable a plugin. |
 | `agy plugin uninstall <name>` | Remove a plugin. |
 
 Open `Configure MCP servers...` in an installed plugin to set or change server variables. Saving restarts its enabled servers; `needs setup` marks missing values.
 
-Use `agy plugin validate <path> --strict` before publishing. It checks manifests, skills, agents, rules, hooks, sidecars, MCP configuration, context providers, and referenced files. Use lowercase kebab-case plugin names and valid logo paths. Hook stdin JSON includes `lastUserInput` with the latest user message.
+Use `agy plugin validate <path> --strict` before publishing. To validate a plugin in a GitHub subfolder, use `https://github.com/<owner>/<repo>/tree/<branch>/<path>`. Validation checks manifests, skills, agents, rules, hooks, sidecars, MCP configuration, context providers, and referenced files. Use lowercase kebab-case plugin names and valid logo paths. Hook stdin JSON includes `lastUserInput` with the latest user message.
+
+Outside Gemini Enterprise, managed `pluginControls.pluginsDisabled` disables all plugins, including built-in plugins. `pluginControls.marketplaceDisabled` disables marketplace access while installed plugins remain available. Gemini Enterprise follows its Cloud Console policy.
 
 Plugin files: `plugin.json`, `mcp_config.json`, `hooks.json`, `rules.json`, `skills/`, `agents/`, `agents.json`, and `rules/` under `~/.gemini/antigravity-cli/plugins/<plugin_name>/`. Enablement is stored in `config.json`. Plugins placed directly in `~/.gemini/config/plugins/` that need MCP variables start disabled until enabled.
 
@@ -427,7 +443,7 @@ MCP config:
 | `Authentication expired. Please log back in.` | Sign in again. |
 | Unknown custom agent | Run `agy agents` and use a listed name. |
 | Invalid headless schema | Use a JSON schema with `"type": "object"` at the root. |
-| Remote Control with ADC fails | Use a supported sign-in method; ADC is unavailable for Remote Control. |
+| Remote Control with ADC or a Gemini API key fails | Switch to a supported account sign-in method. API-key launch flags exit with code `2`. |
 | Auto mode is missing | Check account eligibility and terminal sandbox support. Windows needs Windows 11 24H2 or later with the August 2026 update or later. |
 | Plugin or plugin MCP server needs sign-in | Open `/plugin` and connect the plugin from the Installed tab. |
 | Endpoint security blocks bundled ripgrep | Set `ANTIGRAVITY_DISABLE_EMBEDDED_RIPGREP=true` to use ripgrep on your PATH or the built-in search. |
@@ -445,6 +461,7 @@ MCP config:
 - [Headless Mode](https://antigravity.google/docs/cli/headless/)
 - [Voice Dictation](https://antigravity.google/docs/cli/commands/voice/)
 - [MCP Configuration](https://antigravity.google/docs/mcp)
+- [Dynamic Workflows](https://antigravity.google/docs/dynamic-workflows/)
 - [Antigravity CLI Releases](https://github.com/google-antigravity/antigravity-cli/releases)
 
 ## More ScriptByAI cheatsheets and resources
